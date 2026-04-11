@@ -1,0 +1,10 @@
+import { Router } from "express";
+import { changepassword, forgetpassword, login, logout, refresh, register, } from "../controller/auth.controller.js";
+import { authMiddleware } from "../middlewares/auth.middleware.js";
+export const authRoute = Router();
+authRoute.route("/login").post(login);
+authRoute.route("/register").post(register);
+authRoute.route("/refresh").post(refresh);
+authRoute.route("/change-password").post(authMiddleware, changepassword);
+authRoute.route("/forget-password").post(forgetpassword);
+authRoute.route("/logout").post(authMiddleware, logout);

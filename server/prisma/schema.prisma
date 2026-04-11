@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int       @id @default(autoincrement())
+  firstname  String
+  lastname   String
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  accounts   Account[]
+}
+
+model Account {
+  id                     Int          @id @default(autoincrement())
+  email                  String
+  is_verified            Boolean      @default(false)
+
+  hashed_password        String?
+  provider               AuthProvider
+  provider_account_id    String
+
+  user_id                Int
+  user                   User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  sessions               Session[]
+
+  created_at          DateTime     @default(now())
+  updated_at          DateTime     @updatedAt
+
+  @@unique([provider, provider_account_id])
+  @@index([user_id])
+}
+
+model Session {
+  id            Int      @id @default(autoincrement())
+  refresh_token String   
+  expires_at    DateTime
+  is_revoked    Boolean   @default(false)
+
+  user_agent     String?
+  ip_address     String?
+
+  account_id    Int
+  account       Account  @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@index([account_id])
+  @@index([refresh_token])
+}
+
+model VerificationToken {
+  id        Int      @id @default(autoincrement())
+  email     String
+  token     String
+  type      String
+  expiresAt DateTime
+
+  created_at  DateTime @default(now())
+
+  @@index([email])
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  GITHUB
+}
