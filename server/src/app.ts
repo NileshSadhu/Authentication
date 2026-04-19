@@ -3,17 +3,19 @@ import express, { Request, Response } from "express";
 import { env } from "./config/env.js";
 import cors from "cors";
 import { rateLimit } from "express-rate-limit";
+import helmet from "helmet";
 
 const frontendUrl = env.FRONTEND_URL;
 
 export const app = express();
 
-const limiter = rateLimit({
+export const authlimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: 5,
+  max: 5,
+  message: "Too many attempts, try adain later.",
 });
 
-app.use(limiter);
+app.use(helmet);
 app.use(express.json());
 app.use(cookieParser());
 

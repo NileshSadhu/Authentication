@@ -292,7 +292,15 @@ export const refresh = async (req: Request, res: Response) => {
       });
     }
 
-    const decoded = jwt.verify(token, JWT_REFRESH_SECRET) as JwtPayload;
+    let decoded: JwtPayload;
+
+    try {
+      decoded = jwt.verify(token, JWT_REFRESH_SECRET) as JwtPayload;
+    } catch (err) {
+      return res.status(401).json({
+        message: "Invalid or expired token",
+      });
+    }
 
     if (!decoded || decoded.type !== "refresh") {
       return res.status(401).json({
@@ -311,8 +319,17 @@ export const refresh = async (req: Request, res: Response) => {
     });
 
     if (!session) {
+      await client.session.updateMany({
+        where: {
+          account_id: decoded.id,
+        },
+        data: {
+          is_revoked: true,
+        },
+      });
+
       return res.status(401).json({
-        message: "Invalid session",
+        message: "Session compromised. Please login again.",
       });
     }
 
@@ -609,6 +626,97 @@ export const resetPassword = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error(error);
+    return res.status(500).json({
+      message: "Server Error",
+    });
+  }
+};
+
+export const getSessions = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user_id;
+
+    if (!userId) {
+      return res.status(500).json({
+        message: "User id required.",
+      });
+    }
+
+    const sessions = await client.session.findMany({
+      where: {
+        account: {
+          user_id: userId,
+        },
+        is_revoked: false,
+        expires_at: {
+          gt: new Date(),
+        },
+      },
+      select: {
+        id: true,
+        user_agent: true,
+        ip_address: true,
+        created_at: true,
+        expires_at: true,
+      },
+      orderBy: {
+        created_at: "desc",
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      sessions,
+    });
+  } catch (error) {
+    console.error("Error", error);
+    return res.status(500).json({
+      message: "Server Error",
+    });
+  }
+};
+
+export const revokeSession = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user_id;
+    const sessionId = Number(req.params.sessionId);
+
+    if (!sessionId) {
+      return res.status(400).json({
+        message: "Invalid session id",
+      });
+    }
+
+    const session = await client.session.findFirst({
+      where: {
+        id: sessionId,
+        account: {
+          user_id: userId,
+        },
+      },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        message: "Session not found",
+      });
+    }
+
+    await client.session.update({
+      where: {
+        id: session.id,
+      },
+      data: {
+        is_revoked: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Session revoked",
+    });
+  } catch (error) {
+    console.error("Error", error);
     return res.status(500).json({
       message: "Server Error",
     });
